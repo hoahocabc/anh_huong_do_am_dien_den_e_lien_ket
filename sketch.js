@@ -169,23 +169,23 @@ function draw() {
   
   pop();
   
-  // Draw the note text at the bottom-left corner without a border.
+  // Vẽ note text ở góc trên bên trái.
   drawNote();
 }
 
 function drawNote() {
-  // Note text content
-  const noteText = "ẢNH HƯỞNG CỦA ĐỘ ÂM ĐIỆN\nBấn giữ chuột trái để di chuyển toàn khối.\nĐưa chuột vào vùng của X, Y và lăn chuột để thay đổi giá trị độ âm điện.\nĐưa chuột ra ngoài vùng của X, Y và lăn chuột để phóng to/thu nhỏ.\n© HÓA HỌC ABC";
+  // Nội dung note text
+  const noteText = "ẢNH HƯỞNG CỦA ĐỘ ÂM ĐIỆN.\nBấn giữ chuột trái để di chuyển toàn khối.\nĐưa chuột vào vùng của X, Y và lăn chuột để thay đổi giá trị độ âm điện.\nĐưa chuột ra ngoài vùng của X, Y và lăn chuột để phóng to/thu nhỏ.\n© HÓA HỌC ABC";
   
-  // Settings for the note text
+  // Khoảng cách padding cho box note
   const paddingBox = 10;
   
-  // Set smaller text size for the note
+  // Thiết lập kích cỡ text nhỏ cho note
   textSize(12);
-  // Split the note content into individual lines
+  // Tách nội dung thành các dòng riêng biệt
   const lines = noteText.split("\n");
   
-  // Calculate width based on the widest line
+  // Tính toán chiều rộng của hộp dựa trên dòng dài nhất
   let maxLineWidth = 0;
   for (let i = 0; i < lines.length; i++) {
     maxLineWidth = max(maxLineWidth, textWidth(lines[i]));
@@ -194,11 +194,11 @@ function drawNote() {
   const boxWidth = maxLineWidth + paddingBox * 2;
   const boxHeight = lines.length * lineHeight + paddingBox * 2;
   
-  // Position the note text at the bottom-left corner
+  // Đặt nội dung note ở góc trên bên trái
   const x = 20;
-  const y = height - boxHeight - 20;
+  const y = 20;
   
-  // Draw the note text without any border
+  // Vẽ nội dung note không có viền
   push();
   noStroke();
   fill(255);
