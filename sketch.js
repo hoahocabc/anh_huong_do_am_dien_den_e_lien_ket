@@ -1,0 +1,283 @@
+let a = 0;
+let b = 0;
+let font;
+let posX, posY;
+
+const nucleusRadius = 30;       // Nucleus size (and effective region for modifying a, b)
+const electronRadius = 8;       // Electron radius
+const electronSeparation = 25;  // Bring electrons (A, B) closer together
+const maxOffset = 100;          // Maximum displacement for electron center
+
+// Constants for yellow circles to enclose the electrons
+const constantOverlap = 20;
+const padding = 10;
+
+let zoomFactor = 1;             // Global zoom factor
+let sceneOffset;                // Global pan offset for the entire scene
+
+// Variables to support dragging the scene with left mouse button
+let draggingScene = false;
+let dragStart;      // Will hold the mouse position in screen coordinates when dragging starts.
+let offsetStart;    // Will hold the sceneOffset at the start of the drag.
+
+function preload() {
+  // Attempt to load "Arial.ttf". If it fails, fallback to the default font.
+  font = loadFont("Arial.ttf", fontLoaded, fontError);
+}
+
+function fontLoaded(loadedFont) {
+  font = loadedFont;
+}
+
+function fontError(err) {
+  console.log("Font could not be loaded. Using default font.", err);
+  font = null;
+}
+
+function setup() {
+  createCanvas(1200, 700);
+  if (font) {
+    textFont(font);
+  }
+  // Set default text alignment to center.
+  textAlign(CENTER, CENTER);
+  // Increase the font size for value labels a, b.
+  textSize(25);
+  
+  // Initialize the scene offset once p5.js is ready.
+  sceneOffset = createVector(0, 0);
+  
+  // Place the nuclei farther apart for clarity.
+  posX = createVector(width * 0.35, height / 2);
+  posY = createVector(width * 0.65, height / 2);
+}
+
+function draw() {
+  background(0);
+  
+  // Apply pan and zoom transforms. The transformation order is:
+  // 1. Translate to center, scale by zoomFactor, translate back.
+  // 2. Apply sceneOffset (pan) after scaling.
+  push();
+  translate(width / 2, height / 2);
+  scale(zoomFactor);
+  translate(-width / 2, -height / 2);
+  translate(sceneOffset.x, sceneOffset.y);
+  
+  // Ensure text is centered for scene drawings.
+  textAlign(CENTER, CENTER);
+  
+  noStroke();
+  
+  // Draw nucleus X (light blue)
+  fill(0, 191, 255);
+  ellipse(posX.x, posX.y, nucleusRadius * 2);
+  
+  // Draw nucleus Y (light green)
+  fill(0, 255, 127);
+  ellipse(posY.x, posY.y, nucleusRadius * 2);
+  
+  // Draw value labels a and b exactly centered on the nucleus circles.
+  // Increased text size for better visibility.
+  fill(0);
+  textStyle(BOLD);
+  textSize(25);
+  text(nf(a, 1, 2), posX.x, posX.y);
+  text(nf(b, 1, 2), posY.x, posY.y);
+  textStyle(NORMAL);
+  
+  // Add labels "X" and "Y" below the nucleus circles.
+  textSize(16);
+  fill(255);
+  text("X", posX.x, posX.y + nucleusRadius + 12);
+  text("Y", posY.x, posY.y + nucleusRadius + 12);
+  textSize(30);
+  
+  // Calculate midpoint between X and Y.
+  let mid = p5.Vector.add(posX, posY).mult(0.5);
+  
+  // Determine electron displacement based on difference (a - b).
+  let diff = a - b;
+  let offsetMag = (diff / 3.98) * maxOffset;
+  let dirToX = p5.Vector.sub(posX, mid).normalize();
+  let electronCenter = p5.Vector.add(mid, p5.Vector.mult(dirToX, offsetMag));
+  
+  // Calculate a perpendicular direction from the line connecting X and Y.
+  let vXY = p5.Vector.sub(posY, posX).normalize();
+  let perp = createVector(-vXY.y, vXY.x);
+  
+  // Compute positions for electrons A and B symmetrically about electronCenter.
+  let electronA = p5.Vector.add(electronCenter, p5.Vector.mult(perp, electronSeparation / 2));
+  let electronB = p5.Vector.sub(electronCenter, p5.Vector.mult(perp, electronSeparation / 2));
+  
+  // Safety check: Ensure electrons don't get too close to the nuclei.
+  let minDist = nucleusRadius + electronRadius + 2; // extra margin of 2 pixels
+  let dXA = dist(posX.x, posX.y, electronA.x, electronA.y);
+  let dXB = dist(posX.x, posX.y, electronB.x, electronB.y);
+  if (dXA < minDist || dXB < minDist) {
+    let correction = minDist - min(dXA, dXB);
+    electronCenter = p5.Vector.add(electronCenter, p5.Vector.mult(dirToX, -correction));
+    electronA = p5.Vector.add(electronCenter, p5.Vector.mult(perp, electronSeparation / 2));
+    electronB = p5.Vector.sub(electronCenter, p5.Vector.mult(perp, electronSeparation / 2));
+  }
+  
+  // Draw electrons in white.
+  fill(255);
+  ellipse(electronA.x, electronA.y, electronRadius * 2);
+  ellipse(electronB.x, electronB.y, electronRadius * 2);
+  
+  // Draw "‒" label exactly centered within each electron circle.
+  // The label is shifted upward by 2 pixels to better center it vertically.
+  fill(0);
+  textSize(20);
+  text("‒", electronA.x, electronA.y - 2);
+  text("‒", electronB.x, electronB.y - 2);
+  textSize(20);
+  
+  // Calculate required radii for yellow circles that must enclose the electrons.
+  let reqRX = max(dist(posX.x, posX.y, electronA.x, electronA.y),
+                  dist(posX.x, posX.y, electronB.x, electronB.y)) + padding;
+  let reqRY = max(dist(posY.x, posY.y, electronA.x, electronA.y),
+                  dist(posY.x, posY.y, electronB.x, electronB.y)) + padding;
+  
+  // Compute distance between nuclei.
+  let dXY = dist(posX.x, posX.y, posY.x, posY.y);
+  
+  // Force a fixed overall relationship: finalRX + finalRY = dXY + constantOverlap.
+  let desiredSum = dXY + constantOverlap;
+  let finalRX, finalRY;
+  if (reqRX + reqRY <= desiredSum) {
+    finalRX = (desiredSum + reqRX - reqRY) / 2;
+    finalRY = desiredSum - finalRX;
+  } else {
+    finalRX = reqRX;
+    finalRY = reqRY;
+  }
+  
+  // Constrain the yellow circles' radii so they don't extend past canvas boundaries.
+  let maxPossibleRX = min(posX.x, width - posX.x, posX.y, height - posX.y);
+  let maxPossibleRY = min(posY.x, width - posY.x, posY.y, height - posY.y);
+  finalRX = min(finalRX, maxPossibleRX);
+  finalRY = min(finalRY, maxPossibleRY);
+  
+  // Draw the yellow circles.
+  noFill();
+  stroke(255, 255, 0);
+  strokeWeight(2);
+  ellipse(posX.x, posX.y, finalRX * 2);
+  ellipse(posY.x, posY.y, finalRY * 2);
+  
+  pop();
+  
+  // Draw the note text at the bottom-left corner without a border.
+  drawNote();
+}
+
+function drawNote() {
+  // Note text content
+  const noteText = "ẢNH HƯỞNG CỦA ĐỘ ÂM ĐIỆN\nBấn giữ chuột trái để di chuyển toàn khối.\nĐưa chuột vào vùng của X, Y và lăn chuột để thay đổi giá trị độ âm điện.\nĐưa chuột ra ngoài vùng của X, Y và lăn chuột để phóng to/thu nhỏ.\n© HÓA HỌC ABC";
+  
+  // Settings for the note text
+  const paddingBox = 10;
+  
+  // Set smaller text size for the note
+  textSize(12);
+  // Split the note content into individual lines
+  const lines = noteText.split("\n");
+  
+  // Calculate width based on the widest line
+  let maxLineWidth = 0;
+  for (let i = 0; i < lines.length; i++) {
+    maxLineWidth = max(maxLineWidth, textWidth(lines[i]));
+  }
+  const lineHeight = 16;
+  const boxWidth = maxLineWidth + paddingBox * 2;
+  const boxHeight = lines.length * lineHeight + paddingBox * 2;
+  
+  // Position the note text at the bottom-left corner
+  const x = 20;
+  const y = height - boxHeight - 20;
+  
+  // Draw the note text without any border
+  push();
+  noStroke();
+  fill(255);
+  textAlign(LEFT, TOP);
+  for (let i = 0; i < lines.length; i++) {
+    if (i === 0) {
+      textStyle(BOLD);
+    } else {
+      textStyle(NORMAL);
+    }
+    text(lines[i], x + paddingBox, y + paddingBox + i * lineHeight);
+  }
+  pop();
+}
+
+// Helper function to convert screen coordinates to world coordinates.
+function getWorldMouse() {
+  if (!sceneOffset) {
+    sceneOffset = createVector(0, 0);
+  }
+  let center = createVector(width / 2, height / 2);
+  let mouseVec = createVector(mouseX, mouseY);
+  // Reverse the pan and zoom transforms:
+  // (mouseVec - center) is divided by zoomFactor, then add center, then subtract sceneOffset.
+  return p5.Vector.sub(p5.Vector.add(p5.Vector.div(p5.Vector.sub(mouseVec, center), zoomFactor), center), sceneOffset);
+}
+
+function mouseWheel(event) {
+  // Get world coordinates for mouse.
+  let worldMouse = getWorldMouse();
+  
+  // Determine if the mouse is over the nucleus regions (which update a and b).
+  let overX = dist(worldMouse.x, worldMouse.y, posX.x, posX.y) < nucleusRadius;
+  let overY = dist(worldMouse.x, worldMouse.y, posY.x, posY.y) < nucleusRadius;
+  
+  if (overX) {
+    a += (event.delta < 0 ? 0.25 : -0.25);
+    a = constrain(a, 0, 3.98);
+    return false;
+  }
+  if (overY) {
+    b += (event.delta < 0 ? 0.25 : -0.25);
+    b = constrain(b, 0, 3.98);
+    return false;
+  }
+  
+  // Otherwise, perform zoom.
+  let zoomChange = 1 - event.delta * 0.001;
+  zoomFactor *= zoomChange;
+  zoomFactor = constrain(zoomFactor, 0.5, 3);
+  return false;
+}
+
+function mousePressed() {
+  // When left mouse button is pressed, check if the press is outside the nucleus regions.
+  if (mouseButton === LEFT) {
+    let worldMouse = getWorldMouse();
+    let overX = dist(worldMouse.x, worldMouse.y, posX.x, posX.y) < nucleusRadius;
+    let overY = dist(worldMouse.x, worldMouse.y, posY.x, posY.y) < nucleusRadius;
+    // If not over either nucleus, initiate scene dragging.
+    if (!overX && !overY) {
+      draggingScene = true;
+      // Use screen coordinates directly for dragging.
+      dragStart = createVector(mouseX, mouseY);
+      offsetStart = sceneOffset.copy();
+    }
+  }
+}
+
+function mouseDragged() {
+  if (draggingScene) {
+    // Calculate the delta in screen coordinates, then convert to world delta.
+    let currentMouse = createVector(mouseX, mouseY);
+    let deltaScreen = p5.Vector.sub(currentMouse, dragStart);
+    let deltaWorld = deltaScreen.copy().div(zoomFactor);
+    sceneOffset = p5.Vector.add(offsetStart, deltaWorld);
+  }
+}
+
+function mouseReleased() {
+  draggingScene = false;
+}
