@@ -1,5 +1,5 @@
-let a = 0;
-let b = 0;
+let a = 0.70;
+let b = 0.70;
 let font;
 let posX, posY;
 
@@ -175,7 +175,7 @@ function draw() {
 
 function drawNote() {
   // Nội dung note text
-  const noteText = "ẢNH HƯỞNG CỦA ĐỘ ÂM ĐIỆN.\nBấn giữ chuột trái để di chuyển toàn khối.\nĐưa chuột vào vùng của X, Y và lăn chuột để thay đổi giá trị độ âm điện.\nĐưa chuột ra ngoài vùng của X, Y và lăn chuột để phóng to/thu nhỏ.\n© HÓA HỌC ABC";
+  const noteText = "ẢNH HƯỞNG CỦA ĐỘ ÂM ĐIỆN\nBấn giữ chuột trái để di chuyển toàn khối.\nĐưa chuột vào vùng của X, Y và lăn chuột để thay đổi giá trị độ âm điện.\nĐưa chuột ra ngoài vùng của X, Y và lăn chuột để phóng to/thu nhỏ.\n© HÓA HỌC ABC";
   
   // Khoảng cách padding cho box note
   const paddingBox = 10;
@@ -235,13 +235,13 @@ function mouseWheel(event) {
   let overY = dist(worldMouse.x, worldMouse.y, posY.x, posY.y) < nucleusRadius;
   
   if (overX) {
-    a += (event.delta < 0 ? 0.25 : -0.25);
-    a = constrain(a, 0, 3.98);
+    a += (event.delta < 0 ? 0.01 : -0.01);
+    a = constrain(a, 0.70, 3.98);
     return false;
   }
   if (overY) {
-    b += (event.delta < 0 ? 0.25 : -0.25);
-    b = constrain(b, 0, 3.98);
+    b += (event.delta < 0 ? 0.01 : -0.01);
+    b = constrain(b, 0.70, 3.98);
     return false;
   }
   
